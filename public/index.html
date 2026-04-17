@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>MCP Pixel Grid</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #111;
+      color: #eee;
+      padding: 32px;
+      line-height: 1.55;
+    }
+    main { max-width: 760px; }
+    a { color: #7cf; }
+    code {
+      background: #1e1e1e;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    pre {
+      background: #1e1e1e;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.85em;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.05rem; margin-top: 2rem; }
+    p.lede { color: #aaa; margin-top: 0; }
+    .grid-wrap {
+      display: inline-block;
+      padding: 8px;
+      background: #fff;
+      border-radius: 4px;
+      margin: 16px 0;
+    }
+    canvas {
+      image-rendering: pixelated;
+      cursor: crosshair;
+      display: block;
+      width: 512px;
+      height: 512px;
+    }
+    .status { font-size: 0.85em; color: #888; margin-top: 4px; }
+    .status.live { color: #7c7; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MCP Pixel Grid</h1>
+    <p class="lede">128×128 pixels on Cloudflare. Click to toggle. One Durable Object, three interfaces.</p>
+
+    <div class="grid-wrap"><canvas id="c" width="128" height="128"></canvas></div>
+    <div class="status" id="status">connecting…</div>
+
+    <h2>The architecture</h2>
+    <p>
+      A single <code>GridRoom</code> Durable Object owns the state and exposes three RPC methods:
+      <code>snapshot</code>, <code>toggle</code>, <code>setPixels</code>. Three interfaces converge on them.
+    </p>
+    <ol>
+      <li><strong>UI click</strong> → <code>POST /api/toggle</code> → <code>room.toggle(x, y)</code></li>
+      <li><strong>HTTP API</strong> → <code>POST /api/set-matrix</code> → <code>room.setPixels(...)</code></li>
+      <li><strong>MCP tool call</strong> → <code>GridMCP</code> agent → <code>room.setPixels(...)</code></li>
+    </ol>
+    <p>
+      Every mutation broadcasts a diff over a hibernatable WebSocket (<code>/ws</code>) to every connected browser.
+      The MCP tool is literally a caller of the same RPC — there is no "MCP subsystem".
+    </p>
+
+    <h2>HTTP API</h2>
+    <pre>curl -X POST http://localhost:8787/api/set-matrix \
+  -H 'content-type: application/json' \
+  -d '{"pixels":[[10,10,1],[11,10,1],[12,10,1]]}'</pre>
+
+    <h2>MCP endpoint</h2>
+    <p>
+      Streamable HTTP at <code>/mcp</code>, served by <code>McpAgent</code> from Cloudflare's <code>agents</code>
+      package, which wraps the official <code>@modelcontextprotocol/sdk</code> <code>McpServer</code>. Point
+      Claude Desktop, MCP Inspector, or any MCP client at it.
+    </p>
+    <pre>npx @modelcontextprotocol/inspector http://localhost:8787/mcp</pre>
+
+    <h2>Source map</h2>
+    <ul>
+      <li><code>src/grid-room.ts</code> — state-owning DO + RPC + HTTP + WebSocket</li>
+      <li><code>src/grid-mcp.ts</code> — <code>McpAgent</code> subclass, tools that call the Room</li>
+      <li><code>src/index.ts</code> — Worker router</li>
+      <li><code>public/index.html</code> — this page</li>
+      <li><code>wrangler.jsonc</code> — two DO bindings + static assets</li>
+    </ul>
+  </main>
+
+  <script>
+    const W = 128, H = 128;
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const img = ctx.createImageData(W, H);
+    const status = document.getElementById("status");
+
+    function paintAll(bytes) {
+      for (let i = 0; i < bytes.length; i++) {
+        const c = bytes[i] ? 0 : 255;
+        img.data[i * 4] = c;
+        img.data[i * 4 + 1] = c;
+        img.data[i * 4 + 2] = c;
+        img.data[i * 4 + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    function paintDiff(diff) {
+      for (const { x, y, v } of diff) {
+        const i = (y * W + x) * 4;
+        const c = v ? 0 : 255;
+        img.data[i] = c;
+        img.data[i + 1] = c;
+        img.data[i + 2] = c;
+        img.data[i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    (async () => {
+      const buf = await (await fetch("/api/grid")).arrayBuffer();
+      paintAll(new Uint8Array(buf));
+
+      const wsUrl = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws";
+      const ws = new WebSocket(wsUrl);
+      ws.addEventListener("open", () => {
+        status.textContent = "live — diffs from UI, HTTP, and MCP all arrive here";
+        status.classList.add("live");
+      });
+      ws.addEventListener("close", () => {
+        status.textContent = "disconnected";
+        status.classList.remove("live");
+      });
+      ws.addEventListener("message", (e) => {
+        try { paintDiff(JSON.parse(e.data)); } catch {}
+      });
+    })();
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor(((e.clientX - rect.left) / rect.width) * W);
+      const y = Math.floor(((e.clientY - rect.top) / rect.height) * H);
+      fetch("/api/toggle", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ x, y }),
+      });
+    });
+  </script>
+</body>
+</html>
