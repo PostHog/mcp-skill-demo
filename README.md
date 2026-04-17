@@ -1,5 +1,8 @@
 # MCP Pixel Grid
 
+<img width="963" height="954" alt="Screenshot 2026-04-17 at 5 26 08 PM" src="https://github.com/user-attachments/assets/007b3444-eb6c-47e6-a741-357a8ff4c3f0" />
+
+
 A demo showing how to build an MCP-enabled web application on Cloudflare Workers. A 32x32 pixel grid lives inside a Durable Object, and three interfaces converge on the same shared state:
 
 1. **Browser UI** — click or drag to toggle pixels, with live updates over WebSocket
