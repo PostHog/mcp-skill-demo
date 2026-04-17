@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>MCP Pixel Grid</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0c0c;
+      --surface: #161616;
+      --border: #262626;
+      --text: #e0ddd5;
+      --text-dim: #8a8780;
+      --accent: #c8a44e;
+      --accent-dim: rgba(200, 164, 78, 0.12);
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+      --sans: "IBM Plex Sans", system-ui, sans-serif;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 840px; margin: 0 auto; padding: 48px 32px 80px; }
+
+    /* ── Header ── */
+    header { margin-bottom: 40px; }
+    h1 {
+      font-family: var(--sans);
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .tagline {
+      font-size: 0.875rem;
+      color: var(--text-dim);
+    }
+
+    /* ── Grid area ── */
+    .grid-section { margin-bottom: 40px; }
+    .grid-wrap {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    canvas { cursor: crosshair; display: block; }
+    .grid-caption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 0.8rem;
+    }
+    .grid-uri {
+      color: var(--accent);
+      letter-spacing: 0.02em;
+    }
+    .grid-uri::before {
+      content: "";
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 8px;
+      vertical-align: 1px;
+    }
+    .status { color: var(--text-dim); }
+    .status.live { color: #6b9; }
+    .status.live::before {
+      content: "";
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #6b9;
+      margin-right: 6px;
+    }
+    button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 5px 14px;
+      font: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border-radius: var(--radius);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    button:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ── Section styling ── */
+    h2 {
+      font-family: var(--sans);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    section { margin-bottom: 36px; }
+
+    p { font-size: 0.875rem; margin-bottom: 12px; }
+    p:last-child { margin-bottom: 0; }
+
+    code {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 0.85em;
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    /* ── Connect block ── */
+    .connect-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .connect-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .connect-card .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .connect-card pre {
+      margin: 0;
+      border: none;
+      background: none;
+      padding: 0;
+      font-size: 0.8rem;
+    }
+
+    /* ── Reference cards ── */
+    .ref-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 12px;
+    }
+    .ref-card-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .ref-card-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--accent);
+    }
+    .ref-card-type {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+    .ref-card p {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+    }
+    .params {
+      margin-top: 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+    .param {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 4px 12px;
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+    .param:last-child { margin-bottom: 0; }
+    .param-name {
+      font-weight: 500;
+      color: var(--text);
+    }
+    .param-name .param-type {
+      font-weight: 400;
+      color: var(--text-dim);
+      margin-left: 4px;
+    }
+    .param-desc { color: var(--text-dim); }
+
+    /* ── Architecture ── */
+    .arch-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      font-size: 0.82rem;
+    }
+    .arch-flow .row {
+      display: grid;
+      grid-template-columns: 140px 24px 1fr;
+      align-items: center;
+      padding: 6px 0;
+    }
+    .arch-flow .arrow { color: var(--text-dim); text-align: center; }
+    .arch-flow .interface { color: var(--accent); font-weight: 500; }
+    .arch-flow .target { color: var(--text-dim); }
+
+    /* ── Source ── */
+    .source-list {
+      list-style: none;
+      font-size: 0.82rem;
+    }
+    .source-list li {
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+    }
+    .source-list li:last-child { border-bottom: none; }
+    .source-list code {
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+    .source-list .desc { color: var(--text-dim); }
+
+    @media (max-width: 600px) {
+      .page { padding: 24px 16px 60px; }
+      .connect-grid { grid-template-columns: 1fr; }
+      .param { grid-template-columns: 100px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>MCP Pixel Grid</h1>
+      <p class="tagline">32×32 pixels on a Cloudflare Durable Object. Three interfaces, one shared state.</p>
+    </header>
+
+    <div class="grid-section">
+      <div class="grid-wrap">
+        <canvas id="c" width="575" height="575"></canvas>
+      </div>
+      <div class="grid-caption">
+        <span class="grid-uri">grid://current</span>
+        <span class="status" id="status">connecting</span>
+        <button id="clear">clear</button>
+      </div>
+    </div>
+
+    <section>
+      <h2>Connect</h2>
+      <div class="connect-grid">
+        <div class="connect-card">
+          <div class="label">Claude Code</div>
+          <pre><code class="cmd">claude mcp add --transport http pixel-grid ORIGIN/mcp</code></pre>
+        </div>
+        <div class="connect-card">
+          <div class="label">MCP Inspector</div>
+          <pre><code class="cmd">npx @modelcontextprotocol/inspector ORIGIN/mcp</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>MCP Surface</h2>
+
+      <div class="ref-card">
+        <div class="ref-card-header">
+          <span class="ref-card-name">grid://current</span>
+          <span class="ref-card-type">resource</span>
+        </div>
+        <p>
+          The current grid as 32 lines of 32 characters. <code>0</code>&thinsp;=&thinsp;white,
+          <code>1</code>&thinsp;=&thinsp;black. Format matches the <code>bits</code> argument of
+          <code>write</code>, so a row can be sliced and passed straight back.
+        </p>
+      </div>
+
+      <div class="ref-card">
+        <div class="ref-card-header">
+          <span class="ref-card-name">clear</span>
+          <span class="ref-card-type">tool</span>
+        </div>
+        <p>Set every pixel to white. No parameters.</p>
+      </div>
+
+      <div class="ref-card">
+        <div class="ref-card-header">
+          <span class="ref-card-name">write</span>
+          <span class="ref-card-type">tool</span>
+        </div>
+        <p>Write a run of pixels starting at a linear address. Wraps across rows.</p>
+        <div class="params">
+          <div class="param">
+            <span class="param-name">offset <span class="param-type">int</span></span>
+            <span class="param-desc">Linear address 0&ndash;1023. Row-major: <code>y&thinsp;*&thinsp;32&thinsp;+&thinsp;x</code></span>
+          </div>
+          <div class="param">
+            <span class="param-name">bits <span class="param-type">string</span></span>
+            <span class="param-desc">One char per cell. <code>1</code>&thinsp;=&thinsp;black, <code>0</code>&thinsp;=&thinsp;white, <code>.</code>&thinsp;=&thinsp;skip</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Architecture</h2>
+      <p>
+        A single <code>GridRoom</code> Durable Object owns the pixel state.
+        Every interface — browser, HTTP, MCP — calls the same RPC methods on it.
+        Mutations broadcast diffs over a hibernatable WebSocket to all connected browsers.
+      </p>
+      <div class="arch-flow" style="margin-top: 14px;">
+        <div class="row">
+          <span class="interface">UI click</span>
+          <span class="arrow">&rarr;</span>
+          <span class="target"><code>POST /api/toggle</code> &rarr; <code>room.toggle(x, y)</code></span>
+        </div>
+        <div class="row">
+          <span class="interface">HTTP API</span>
+          <span class="arrow">&rarr;</span>
+          <span class="target"><code>POST /api/set-matrix</code> &rarr; <code>room.setPixels(...)</code></span>
+        </div>
+        <div class="row">
+          <span class="interface">MCP tool</span>
+          <span class="arrow">&rarr;</span>
+          <span class="target"><code>GridMCP</code> agent &rarr; <code>room.writeBits(...)</code></span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>HTTP API</h2>
+      <pre><code class="cmd">curl -X POST ORIGIN/api/set-matrix \
+  -H 'content-type: application/json' \
+  -d '{"pixels":[[10,10,1],[11,10,1],[12,10,1]]}'</code></pre>
+    </section>
+
+    <section>
+      <h2>Source</h2>
+      <ul class="source-list">
+        <li><code>src/grid-room.ts</code> <span class="desc">State-owning DO &middot; RPC &middot; HTTP &middot; WebSocket</span></li>
+        <li><code>src/grid-mcp.ts</code> <span class="desc">McpAgent subclass &middot; tools that call the Room</span></li>
+        <li><code>src/index.ts</code> <span class="desc">Worker router</span></li>
+        <li><code>public/index.html</code> <span class="desc">This page</span></li>
+        <li><code>wrangler.jsonc</code> <span class="desc">DO bindings &middot; static assets</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    for (const el of document.querySelectorAll(".cmd")) {
+      el.textContent = el.textContent.replaceAll("ORIGIN", location.origin);
+    }
+
+    const W = 32, H = 32;
+    const CELL = 17;
+    const STRIDE = 18;
+
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const status = document.getElementById("status");
+
+    let grid = new Uint8Array(W * H);
+    let dragStart = null;
+    let dragCurrent = null;
+
+    function paintCell(x, y, v) {
+      ctx.fillStyle = v ? "#000" : "#fff";
+      ctx.fillRect(x * STRIDE, y * STRIDE, CELL, CELL);
+    }
+
+    function paintAll() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          paintCell(x, y, grid[y * W + x]);
+        }
+      }
+    }
+
+    function paintOverlay() {
+      if (!dragStart || !dragCurrent) return;
+      const minX = Math.min(dragStart.x, dragCurrent.x);
+      const maxX = Math.max(dragStart.x, dragCurrent.x);
+      const minY = Math.min(dragStart.y, dragCurrent.y);
+      const maxY = Math.max(dragStart.y, dragCurrent.y);
+      const left = minX * STRIDE;
+      const top = minY * STRIDE;
+      const w = (maxX - minX) * STRIDE + CELL;
+      const h = (maxY - minY) * STRIDE + CELL;
+      ctx.fillStyle = "rgba(200, 164, 78, 0.2)";
+      ctx.fillRect(left, top, w, h);
+      ctx.strokeStyle = "#c8a44e";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left + 0.5, top + 0.5, w - 1, h - 1);
+    }
+
+    function cellFromEvent(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = ((e.clientX - rect.left) * canvas.width) / rect.width;
+      const cy = ((e.clientY - rect.top) * canvas.height) / rect.height;
+      const x = Math.max(0, Math.min(W - 1, Math.floor(cx / STRIDE)));
+      const y = Math.max(0, Math.min(H - 1, Math.floor(cy / STRIDE)));
+      return { x, y };
+    }
+
+    (async () => {
+      const buf = await (await fetch("/api/grid")).arrayBuffer();
+      grid = new Uint8Array(buf);
+      paintAll();
+
+      const wsUrl = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws";
+      const ws = new WebSocket(wsUrl);
+      ws.addEventListener("open", () => {
+        status.textContent = "live";
+        status.classList.add("live");
+      });
+      ws.addEventListener("close", () => {
+        status.textContent = "disconnected";
+        status.classList.remove("live");
+      });
+      ws.addEventListener("message", (e) => {
+        try {
+          const diff = JSON.parse(e.data);
+          for (const { x, y, v } of diff) {
+            grid[y * W + x] = v;
+            paintCell(x, y, v);
+          }
+          if (dragStart) paintOverlay();
+        } catch {}
+      });
+    })();
+
+    canvas.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      dragStart = cellFromEvent(e);
+      dragCurrent = dragStart;
+      paintAll();
+      paintOverlay();
+      e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!dragStart) return;
+      const next = cellFromEvent(e);
+      if (next.x === dragCurrent.x && next.y === dragCurrent.y) return;
+      dragCurrent = next;
+      paintAll();
+      paintOverlay();
+    });
+
+    window.addEventListener("mouseup", (e) => {
+      if (!dragStart) return;
+      const start = dragStart;
+      const end = cellFromEvent(e);
+      dragStart = null;
+      dragCurrent = null;
+      paintAll();
+
+      if (start.x === end.x && start.y === end.y) {
+        fetch("/api/toggle", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(start),
+        });
+        return;
+      }
+
+      const minX = Math.min(start.x, end.x), maxX = Math.max(start.x, end.x);
+      const minY = Math.min(start.y, end.y), maxY = Math.max(start.y, end.y);
+      const pixels = [];
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          pixels.push([x, y, grid[y * W + x] ? 0 : 1]);
+        }
+      }
+      fetch("/api/set-matrix", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pixels }),
+      });
+    });
+
+    document.getElementById("clear").addEventListener("click", () => {
+      fetch("/api/clear", { method: "POST" });
+    });
+  </script>
+</body>
+</html>
