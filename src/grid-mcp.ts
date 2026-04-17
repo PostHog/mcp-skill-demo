@@ -2,58 +2,86 @@ import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { HEIGHT, ROOM_NAME, WIDTH, type Pixel } from "./grid-room";
+import { HEIGHT, ROOM_NAME, SIZE, WIDTH, WRITE_SKIP } from "./grid-room";
+
+const GRID_URI = "grid://current";
 
 // The MCP interface. Each MCP session runs in its own GridMCP DO
 // instance (managed by McpAgent), but all of them proxy mutations to
-// the singleton GridRoom — so the MCP tool is literally a caller of
+// the singleton GridRoom — so an MCP tool is literally a caller of
 // the same RPC that the HTTP route uses.
 
 export class GridMCP extends McpAgent<Env> {
   server = new McpServer({
     name: "mcp-pixel-grid",
-    version: "0.1.0",
+    version: "0.2.0",
   });
 
   async init(): Promise<void> {
-    this.server.registerTool(
-      "get_grid",
+    this.server.registerResource(
+      "grid",
+      GRID_URI,
       {
+        title: "Pixel grid",
         description:
-          "Return the 128×128 grid as a base64-encoded byte array (row-major, 0=white, 1=black).",
-        inputSchema: {},
+          `The current ${WIDTH}×${HEIGHT} grid as ${HEIGHT} lines of ${WIDTH} ` +
+          `characters each, separated by '\\n'. '0' = white, '1' = black. ` +
+          `The format matches the 'bits' argument of the write tool, so a ` +
+          `slice of this resource can be passed straight back in.`,
+        mimeType: "text/plain",
       },
-      async () => {
+      async (uri) => {
         const bytes = await this.room().snapshot();
         return {
-          content: [
-            { type: "text", text: `width=${WIDTH} height=${HEIGHT}` },
-            { type: "text", text: toBase64(bytes) },
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "text/plain",
+              text: bytesToGridText(bytes),
+            },
           ],
         };
       },
     );
 
     this.server.registerTool(
-      "set_pixels",
+      "clear",
       {
-        description: "Set a batch of pixels. v=0 is white, v=1 is black.",
+        description: "Clear the grid (set every pixel to white).",
+        inputSchema: {},
+      },
+      async () => {
+        const changed = await this.room().clear();
+        return {
+          content: [{ type: "text", text: `cleared ${changed} pixel(s)` }],
+        };
+      },
+    );
+
+    this.server.registerTool(
+      "write",
+      {
+        description:
+          `Write a run of pixels starting at a linear address. ` +
+          `The grid is row-major: address = y * ${WIDTH} + x, ranging 0..${SIZE - 1}. ` +
+          `The 'bits' string has one character per cell: ` +
+          `'1' = black, '0' = white, '${WRITE_SKIP}' = leave unchanged. ` +
+          `Writes wrap across rows. ` +
+          `Example: offset=0, bits="11111111" blackens pixels (0,0)..(7,0).`,
         inputSchema: {
-          pixels: z
-            .array(
-              z.object({
-                x: z.number().int().min(0).max(WIDTH - 1),
-                y: z.number().int().min(0).max(HEIGHT - 1),
-                v: z.union([z.literal(0), z.literal(1)]),
-              }),
-            )
-            .max(WIDTH * HEIGHT),
+          offset: z.number().int().min(0).max(SIZE),
+          bits: z
+            .string()
+            .regex(
+              new RegExp(`^[01\\${WRITE_SKIP}]*$`),
+              `bits must contain only '0', '1', or '${WRITE_SKIP}'`,
+            ),
         },
       },
-      async ({ pixels }) => {
-        const applied = await this.room().setPixels(pixels as Pixel[]);
+      async ({ offset, bits }) => {
+        const changed = await this.room().writeBits(offset, bits);
         return {
-          content: [{ type: "text", text: `applied ${applied} pixel(s)` }],
+          content: [{ type: "text", text: `wrote ${changed} pixel(s)` }],
         };
       },
     );
@@ -69,15 +97,16 @@ export class GridMCP extends McpAgent<Env> {
   }
 }
 
-function toBase64(bytes: Uint8Array): string {
-  // btoa needs a binary string; chunk to avoid large spread.
-  let s = "";
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    s += String.fromCharCode.apply(
-      null,
-      bytes.subarray(i, i + CHUNK) as unknown as number[],
-    );
+// Render a row-major byte grid as HEIGHT lines of WIDTH characters,
+// where each character is '0' (white) or '1' (black).
+function bytesToGridText(bytes: Uint8Array): string {
+  const rows: string[] = [];
+  for (let y = 0; y < HEIGHT; y++) {
+    let row = "";
+    for (let x = 0; x < WIDTH; x++) {
+      row += bytes[y * WIDTH + x] ? "1" : "0";
+    }
+    rows.push(row);
   }
-  return btoa(s);
+  return rows.join("\n");
 }
